@@ -15,6 +15,15 @@ O script lê os PDFs digitalizados de prestação de contas de viagem (relatóri
 
 As distâncias de carro e de Uber **nunca são somadas entre si**. Se as corridas ou os trajetos de um documento caírem em meses diferentes, cada mês recebe só o que foi feito nele.
 
+## Dupla confirmação dos km de carro
+
+No relatório, o km de cada trajeto aparece duas vezes: em "Trajeto total (km)" e em "km/mi.". Um valor só é lançado quando **pelo menos duas leituras concordam e são maioria**.
+
+- Se não houver esse consenso, o script relê a página com outras configurações de OCR (outra resolução e outro modo de leitura) e vota de novo.
+- Se mesmo assim não houver consenso, o trajeto **não é lançado**, e o aviso mostra os valores lidos para conferência.
+
+Assim, um dígito lido errado (225 lido como 228, por exemplo) não entra na planilha sem que ninguém perceba.
+
 ## Conferências automáticas
 
 Quando algo não fecha, o script **não chuta valores**. Ele escreve um aviso na coluna *Observações* e no relatório de conferência:
@@ -33,6 +42,7 @@ Cada execução gera também o arquivo `conferencia_<planilha>_<data>.csv`, ao l
 - Se a planilha de saída não existir, ela é criada a partir do modelo.
 - Se existir, as novas linhas são acrescentadas no final.
 - Um documento que já foi lançado (mesmo tipo + mesma evidência) é **ignorado**, para não duplicar.
+- Para regravar documentos já lançados (por exemplo, depois de corrigir um problema), use `--substituir`. A linha existente é sobrescrita no mesmo lugar.
 - Feche a planilha no Excel antes de rodar o script.
 
 ## Instalação (Windows)
@@ -61,6 +71,8 @@ Sem a opção `-o`, a planilha é criada (ou atualizada) como `planilha_GEE.xlsx
 ```bash
 py extrair_viagens.py "C:\Users\Aluno\Desktop\viagens" -o "C:\Users\Aluno\Desktop\planilha_GEE_2026.xlsx"
 ```
+
+Se algum documento for lido de forma estranha, rode de novo com `--salvar-texto "C:\\...\\texto_ocr"`. O script grava o texto que o OCR leu de cada PDF, o que ajuda a diagnosticar o problema.
 
 Também dá para passar arquivos PDF avulsos, ou várias pastas. Cada documento leva cerca de 1 minuto (são cerca de 2 s por página).
 

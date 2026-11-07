@@ -4,7 +4,7 @@ from datetime import date
 from types import SimpleNamespace
 
 from extrator.parser import (Documento, eh_recibo_uber, eh_relatorio, interpretar_recibo_uber,
-                             interpretar_relatorio, normalizar_placa, numero_br)
+                             interpretar_relatorio, ler_trajetos, normalizar_placa, numero_br)
 from extrator.processar import linhas_do_documento
 
 PAG1 = """CFP - 2.60 - REGISTRO
@@ -91,7 +91,49 @@ class TestParser(unittest.TestCase):
         ruim = PAG2.replace("2 de junho de 2026 Trajeto", "2 de jun#o de 2026 Trajeto")
         interpretar_relatorio(doc, [pag(1, PAG1), pag(2, ruim)])
         self.assertEqual(len(doc.trechos), 1)
-        self.assertTrue(any("não lido" in a for a in doc.avisos_carro))
+        self.assertTrue(any("data ilegível" in a for a in doc.avisos_carro))
+
+    # --- casos reais de ruído do OCR no 1º trajeto (logo abaixo da faixa cinza) ---
+    BLOCO = ("{data} Trajeto total (km) {km}\nDe: A Para: B\nkm/mi.: {kmmi}\n"
+             "Marca do veículo: FIAT UNO Placa de veículo: EZW7968\n")
+
+    def _pag(self, *blocos):
+        return "Nº pessoal: 1\n" + "".join(self.BLOCO.format(data=d, km=k, kmmi=m) for d, k, m in blocos)
+
+    def test_ruido_na_linha_do_trajeto(self):
+        texto = self._pag(("P de fevereiro de 2026 | o", "218", "218"),
+                          ("4de fevereiro de 2026 = o o", "9", "9"),
+                          ("5 de feverelro de 2026", "17", "17"))
+        trechos, avisos = ler_trajetos(texto, 2)
+        self.assertEqual(avisos, [])
+        self.assertEqual([(t.mes, t.km) for t in trechos], [(2, 218), (2, 9), (2, 17)])
+        self.assertEqual([t.dia for t in trechos], [None, 4, 5])
+
+    def test_leitura_unica_sem_confirmacao_nao_lanca(self):
+        # "Trajeto total" sem número e km/mi. lido errado (225 -> 228): 1 voto só
+        texto = self._pag(("8 de maio de 2026", "", "228"), ("8 de maio de 2026", "221", "221"))
+        trechos, avisos = ler_trajetos(texto, 2)
+        self.assertEqual([t.km for t in trechos], [221])
+        self.assertTrue(any("NÃO lançado" in a and "228" in a for a in avisos))
+
+    def test_consenso_entre_leituras(self):
+        ruim = self._pag(("8 de maio de 2026", "", "228"), ("8 de maio de 2026", "221", "221"))
+        boa = self._pag(("8 de maio de 2026", "225", "225"), ("8 de maio de 2026", "221", "221"))
+        trechos, avisos = ler_trajetos([ruim, boa], 2)
+        self.assertEqual(avisos, [])
+        self.assertEqual([t.km for t in trechos], [225, 221])
+
+    def test_divergencia_empatada_nao_lanca(self):
+        texto = self._pag(("8 de maio de 2026", "225", "228"))
+        trechos, avisos = ler_trajetos(texto, 2)
+        self.assertEqual(trechos, [])
+        self.assertTrue(any("225" in a and "228" in a for a in avisos))
+
+    def test_trajeto_sem_ancora_e_detectado(self):
+        texto = self._pag(("8 de maio de 2026", "221", "221")) + \
+            "8 de maio de 2026 225\nkm/mi.: 225\nMarca do veículo: X Placa de veículo: EZW7968\n"
+        trechos, avisos = ler_trajetos(texto, 2)
+        self.assertTrue(any("não lido" in a for a in avisos))
 
 
 if __name__ == "__main__":

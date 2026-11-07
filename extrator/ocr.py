@@ -95,6 +95,12 @@ def renderizar(pdf_path: str, dpi: int = DPI_PADRAO):
             yield i, Image.frombytes("L", (pix.width, pix.height), pix.samples)
 
 
+def renderizar_pagina(pdf_path: str, numero: int, dpi: int) -> Image.Image:
+    with pymupdf.open(pdf_path) as doc:
+        pix = doc[numero - 1].get_pixmap(dpi=dpi, colorspace=pymupdf.csGRAY)
+        return Image.frombytes("L", (pix.width, pix.height), pix.samples)
+
+
 def ocr(imagem: Image.Image, psm: int = 4) -> str:
     return pytesseract.image_to_string(imagem, lang="por", config=f"--psm {psm}")
 

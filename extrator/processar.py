@@ -56,24 +56,42 @@ def _ler_corridas(doc: Documento, paginas, visao) -> None:
         doc.avisos_uber.append("Recibos Uber encontrados, mas sem lançamento de Táxi lido no relatório - conferir")
 
 
-def processar_pdf(caminho: Path, dpi: int = ocr_mod.DPI_PADRAO, visao=None) -> Documento:
+def processar_pdf(caminho: Path, dpi: int = ocr_mod.DPI_PADRAO, visao=None,
+                  pasta_texto: Path | None = None) -> Documento:
     doc = Documento(arquivo=caminho.name)
     paginas = ocr_mod.ler_paginas(str(caminho), dpi)
-    interpretar_relatorio(doc, paginas)
+    if pasta_texto is not None:  # diagnóstico: texto bruto do OCR
+        pasta_texto.mkdir(parents=True, exist_ok=True)
+        with open(pasta_texto / f"{caminho.stem}.txt", "w", encoding="utf-8") as f:
+            for p in paginas:
+                f.write(f"\n===== página {p.numero} =====\n{p.texto}")
+
+    def reocr(pagina, dpi_novo: int, psm: int) -> str:
+        return ocr_mod.ocr(ocr_mod.renderizar_pagina(str(caminho), pagina.numero, dpi_novo), psm=psm)
+
+    interpretar_relatorio(doc, paginas, reocr=reocr)
     _ler_corridas(doc, paginas, visao)
     return doc
+
+
+def _mes_ano(it):
+    """(mês, ano) de um Trecho (dia pode faltar) ou de uma Corrida."""
+    if hasattr(it, "mes"):
+        return it.mes, it.ano
+    return (it.data.month, it.data.year) if it.data is not None else (None, None)
 
 
 def _km_por_mes(itens) -> dict[int, float]:
     meses: dict[int, float] = defaultdict(float)
     for it in itens:
-        if it.data is not None and it.km is not None:
-            meses[it.data.month] += it.km
+        mes, _ = _mes_ano(it)
+        if mes is not None and it.km is not None:
+            meses[mes] += it.km
     return {m: round(v, 2) for m, v in sorted(meses.items())}
 
 
 def _anos(itens) -> set[int]:
-    return {it.data.year for it in itens if it.data is not None}
+    return {_mes_ano(it)[1] for it in itens if _mes_ano(it)[1] is not None}
 
 
 def linhas_do_documento(doc: Documento, uber_tipo_frota=None, uber_ano_frota=None) -> list[Linha]:
@@ -101,7 +119,7 @@ def linhas_conferencia(doc: Documento) -> list[list]:
     base = [doc.arquivo, doc.viagem, doc.num_pessoal, doc.nome]
     out = []
     for t in doc.trechos:
-        out.append(base + ["PLACA", f"{t.data:%d/%m/%Y}", t.km, "", t.placa or "", t.pagina, "ocr", ""])
+        out.append(base + ["PLACA", t.rotulo_data, t.km, "", t.placa or "", t.pagina, "ocr", ""])
     for c in doc.corridas:
         out.append(base + ["UBER", f"{c.data:%d/%m/%Y}" if c.data else "", c.km if c.km is not None else "",
                            c.valor if c.valor is not None else "", "", c.pagina, c.fonte, ""])

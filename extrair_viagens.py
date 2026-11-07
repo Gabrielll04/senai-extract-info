@@ -51,6 +51,10 @@ def main(argv=None) -> int:
                     help=f"'Tipo da frota' nas linhas UBER (padrão: {UBER_TIPO_FROTA_PADRAO})")
     ap.add_argument("--uber-ano-frota", type=int, default=UBER_ANO_FROTA_PADRAO,
                     help=f"'Ano da frota' nas linhas UBER (padrão: {UBER_ANO_FROTA_PADRAO})")
+    ap.add_argument("--substituir", action="store_true",
+                    help="regrava as linhas de documentos que já estão na planilha (padrão: ignora)")
+    ap.add_argument("--salvar-texto", metavar="PASTA",
+                    help="salva o texto lido pelo OCR de cada PDF nesta pasta (para diagnóstico)")
     ap.add_argument("--visao", help="provedor de IA com visão para 2ª leitura (ainda não configurado)")
     args = ap.parse_args(argv)
 
@@ -75,7 +79,8 @@ def main(argv=None) -> int:
     for i, pdf in enumerate(pdfs, 1):
         print(f"[{i}/{len(pdfs)}] {pdf.name} ...", flush=True)
         try:
-            doc = processar_pdf(pdf, args.dpi, visao)
+            doc = processar_pdf(pdf, args.dpi, visao,
+                                Path(args.salvar_texto) if args.salvar_texto else None)
         except Exception as e:  # um PDF ruim não interrompe o lote
             print(f"    ERRO ao processar: {e}", file=sys.stderr)
             conferencia.append([pdf.name, "", "", "", "GERAL", "", "", "", "", "", "", f"ERRO: {e}"])
@@ -96,15 +101,18 @@ def main(argv=None) -> int:
         if doc.avisos_gerais or doc.avisos_carro or doc.avisos_uber or not novas:
             com_aviso += 1
 
-    gravadas, ignoradas = gravar(saida, linhas)
+    gravadas, ignoradas, substituidas = gravar(saida, linhas, args.substituir)
     carimbo = datetime.now().strftime("%Y%m%d_%H%M%S")
     rel = saida.with_name(f"conferencia_{saida.stem}_{carimbo}.csv")
     gravar_conferencia(rel, conferencia)
 
     print()
     print(f"Planilha: {saida}  ({len(gravadas)} linha(s) gravada(s))")
+    for l in substituidas:
+        print(f"  [substituída] {l.tipo} viagem {l.evidencia}")
     for l in ignoradas:
-        print(f"  [ignorada] {l.tipo} viagem {l.evidencia} já existe na planilha")
+        print(f"  [ignorada] {l.tipo} viagem {l.evidencia} já existe na planilha "
+              "(use --substituir para regravar)")
     print(f"Relatório de conferência: {rel}")
     if com_aviso:
         print(f"ATENÇÃO: {com_aviso} documento(s) com avisos - veja a coluna Observações e o relatório.")

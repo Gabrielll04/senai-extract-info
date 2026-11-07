@@ -38,13 +38,15 @@ def abrir_ou_criar(caminho: Path):
     return openpyxl.load_workbook(caminho)
 
 
-def chaves_existentes(ws) -> set[tuple[str, int]]:
-    chaves = set()
-    for row in ws.iter_rows(min_row=PRIMEIRA_LINHA_DADOS, max_col=2, values_only=True):
+def chaves_existentes(ws) -> dict[tuple[str, int], int]:
+    """(tipo, evidência) -> nº da linha na planilha."""
+    chaves = {}
+    for r, row in enumerate(ws.iter_rows(min_row=PRIMEIRA_LINHA_DADOS, max_col=2, values_only=True),
+                            start=PRIMEIRA_LINHA_DADOS):
         tipo, evid = row
         if tipo and evid is not None:
             try:
-                chaves.add((str(tipo).strip().upper(), int(evid)))
+                chaves[(str(tipo).strip().upper(), int(evid))] = r
             except (TypeError, ValueError):
                 pass
     return chaves
@@ -66,6 +68,9 @@ def escrever_linha(ws, r: int, linha: Linha) -> None:
     for mes, km in linha.km_por_mes.items():
         valores[COL_MES_JAN + mes - 1] = round(km, 2)
 
+    for faixa in list(ws.merged_cells.ranges):  # ao substituir, a linha já tem R:S mesclado
+        if faixa.min_row == r == faixa.max_row:
+            ws.unmerge_cells(str(faixa))
     for c in range(1, COL_OBS + 2):  # A..S
         cel = ws.cell(r, c)
         cel.value = valores.get(c)
@@ -81,20 +86,26 @@ def escrever_linha(ws, r: int, linha: Linha) -> None:
     ws.merge_cells(start_row=r, start_column=COL_OBS, end_row=r, end_column=COL_OBS + 1)
 
 
-def gravar(caminho: Path, linhas: list[Linha]) -> tuple[list[Linha], list[Linha]]:
-    """Acrescenta as linhas. Retorna (gravadas, ignoradas por já existirem)."""
+def gravar(caminho: Path, linhas: list[Linha], substituir: bool = False):
+    """Acrescenta as linhas. Documento já lançado (mesmo tipo + evidência) é
+    ignorado, ou regravado no mesmo lugar se `substituir`.
+    Retorna (gravadas, ignoradas, substituidas)."""
     wb = abrir_ou_criar(caminho)
     ws = wb.worksheets[0]
     existentes = chaves_existentes(ws)
     r = _proxima_linha(ws)
-    gravadas, ignoradas = [], []
+    gravadas, ignoradas, substituidas = [], [], []
     for linha in linhas:
         chave = (linha.tipo, linha.evidencia)
         if linha.evidencia is not None and chave in existentes:
-            ignoradas.append(linha)
+            if substituir:
+                escrever_linha(ws, existentes[chave], linha)
+                substituidas.append(linha)
+            else:
+                ignoradas.append(linha)
             continue
         escrever_linha(ws, r, linha)
-        existentes.add(chave)
+        existentes[chave] = r
         gravadas.append(linha)
         r += 1
     try:
@@ -104,4 +115,4 @@ def gravar(caminho: Path, linhas: list[Linha]) -> tuple[list[Linha], list[Linha]
             f"Não foi possível salvar '{caminho}'. A planilha está aberta no Excel? "
             "Feche-a e rode novamente."
         ) from e
-    return gravadas, ignoradas
+    return gravadas, ignoradas, substituidas
