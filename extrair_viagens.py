@@ -45,7 +45,7 @@ def main(argv=None) -> int:
     ap.add_argument("-o", "--saida",
                     help=f"planilha .xlsx (criada se não existir). Padrão: {NOME_PLANILHA_PADRAO} "
                          "na pasta dos PDFs")
-    ap.add_argument("--tesseract", help="caminho do tesseract.exe (se não estiver no PATH)")
+    ap.add_argument("--tesseract", help="pasta de instalação do Tesseract ou caminho do tesseract.exe (se não for encontrado sozinho)")
     ap.add_argument("--dpi", type=int, default=ocr.DPI_PADRAO, help="resolução do OCR (padrão 300)")
     ap.add_argument("--uber-tipo-frota", default=UBER_TIPO_FROTA_PADRAO,
                     help=f"'Tipo da frota' nas linhas UBER (padrão: {UBER_TIPO_FROTA_PADRAO})")

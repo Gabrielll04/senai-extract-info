@@ -46,7 +46,7 @@ Cada execução gera também o arquivo `conferencia_<planilha>_<data>.csv`, ao l
 
 Use `py -m pip`, e não só `pip`: no Windows, o comando `pip` sozinho costuma não estar no PATH.
 
-Se o Tesseract foi instalado em outra pasta, informe o caminho com `--tesseract "D:\...\tesseract.exe"`.
+Se o Tesseract foi instalado em outra pasta, informe a **pasta** de instalação (ou o caminho do `tesseract.exe`) com `--tesseract "D:\...\Tesseract-OCR"`. O script já procura sozinho em `C:\Program Files\Tesseract-OCR` e em `%LOCALAPPDATA%\Tesseract-OCR`.
 
 No Linux, use `sudo apt install tesseract-ocr tesseract-ocr-por` e depois `pip install -r requirements.txt`.
 

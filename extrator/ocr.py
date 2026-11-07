@@ -20,24 +20,48 @@ class Pagina:
     imagem: Image.Image  # mantida para reprocessamento (OCR mais forte / visão)
 
 
-_CAMINHOS_WINDOWS = [
-    r"C:\Program Files\Tesseract-OCR\tesseract.exe",
-    r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
-    os.path.expandvars(r"%LOCALAPPDATA%\Programs\Tesseract-OCR\tesseract.exe"),
+_PASTAS_WINDOWS = [
+    r"C:\Program Files\Tesseract-OCR",
+    r"C:\Program Files (x86)\Tesseract-OCR",
+    os.path.expandvars(r"%LOCALAPPDATA%\Tesseract-OCR"),
+    os.path.expandvars(r"%LOCALAPPDATA%\Programs\Tesseract-OCR"),
 ]
+_EXECUTAVEIS = ("tesseract.exe", "tesseract")
+
+
+def _executavel_na_pasta(pasta: str) -> str | None:
+    for nome in _EXECUTAVEIS:
+        c = os.path.join(pasta, nome)
+        if os.path.isfile(c):
+            return c
+    return None
 
 
 def configurar_tesseract(caminho: str | None) -> None:
-    """Define o executável do Tesseract: o informado, o do PATH ou o local
-    padrão de instalação no Windows."""
+    """Define o executável do Tesseract: o informado (arquivo .exe ou a pasta
+    de instalação), o do PATH ou uma das pastas padrão do Windows."""
     if caminho:
+        caminho = os.path.expandvars(caminho.strip().strip('"'))
+        if os.path.isdir(caminho):
+            exe = _executavel_na_pasta(caminho)
+            if not exe:
+                raise SystemExit(
+                    f"A pasta informada em --tesseract existe, mas não contém tesseract.exe:\n"
+                    f"  {caminho}\nConfira se é a pasta onde o Tesseract foi instalado "
+                    f"(normalmente termina em 'Tesseract-OCR').")
+            caminho = exe
+        elif not os.path.isfile(caminho):
+            raise SystemExit(
+                f"O caminho informado em --tesseract não existe:\n  {caminho}\n"
+                f"Confira se o nome está completo (ex.: ...\\Tesseract-OCR\\tesseract.exe).")
         pytesseract.pytesseract.tesseract_cmd = caminho
         return
     if shutil.which("tesseract"):
         return
-    for c in _CAMINHOS_WINDOWS:
-        if os.path.isfile(c):
-            pytesseract.pytesseract.tesseract_cmd = c
+    for pasta in _PASTAS_WINDOWS:
+        exe = _executavel_na_pasta(pasta)
+        if exe:
+            pytesseract.pytesseract.tesseract_cmd = exe
             return
 
 
@@ -45,14 +69,20 @@ def verificar_tesseract() -> str:
     try:
         versao = str(pytesseract.get_tesseract_version())
     except pytesseract.TesseractNotFoundError as e:
+        procurados = "\n".join(f"  {p}" for p in _PASTAS_WINDOWS)
         raise SystemExit(
-            "Tesseract não encontrado. Instale-o (com o idioma português) ou "
-            "informe o caminho com --tesseract. Veja o README."
+            "Tesseract não encontrado. Ele não está no PATH nem nas pastas padrão:\n"
+            f"{procurados}\n"
+            "Instale-o (com o idioma português) ou informe a pasta de instalação com "
+            "--tesseract \"C:\\...\\Tesseract-OCR\". Veja o README."
         ) from e
     if "por" not in pytesseract.get_languages(config=""):
+        tessdata = os.path.join(os.path.dirname(pytesseract.pytesseract.tesseract_cmd), "tessdata")
         raise SystemExit(
-            "O Tesseract está instalado, mas sem o idioma português ('por'). "
-            "Instale o pacote de idioma. Veja o README."
+            "O Tesseract está instalado, mas sem o idioma português ('por').\n"
+            "Reinstale marcando 'Portuguese' em 'Additional language data', ou baixe o arquivo\n"
+            "por.traineddata (https://github.com/tesseract-ocr/tessdata_fast) e copie para:\n"
+            f"  {tessdata}"
         )
     return versao
 
