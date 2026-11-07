@@ -9,7 +9,7 @@ O script lê os PDFs digitalizados de prestação de contas de viagem (relatóri
 | A – Registro da frota | `PLACA` se houver trajetos de carro na seção **Trajeto** do relatório; `UBER` se houver recibos Uber anexados. Se houver os dois, são **duas linhas**. |
 | B – Evidência | Número da **Viagem** (`Viagem: 2111002329`) |
 | C – Descrição do passageiro | Número abaixo do nome do colaborador, no topo da 1ª página. É conferido com o `Nº pessoal` das páginas seguintes. |
-| D / E – Tipo / Ano da frota | Vazios. Nas linhas UBER, podem ser preenchidos com `--uber-tipo-frota` e `--uber-ano-frota`. |
+| D / E – Tipo / Ano da frota | **PLACA:** vazios. **UBER:** `Automóvel flex a gasolina` / `2016` (valores do modelo; o recibo não informa o veículo). Para mudar, use `--uber-tipo-frota` e `--uber-ano-frota`. |
 | F…Q – jan…dez | **PLACA:** soma do `Trajeto total (km)` de cada trajeto, no mês da data do trajeto. **UBER:** soma dos `Quilômetros` de cada recibo, no mês da **data do recibo**. |
 | R – Observações | Avisos para conferência manual (veja abaixo) |
 
@@ -37,21 +37,29 @@ Cada execução gera também o arquivo `conferencia_<planilha>_<data>.csv`, ao l
 
 ## Instalação (Windows)
 
-1. **Python 3.10 ou mais novo:** https://www.python.org/downloads/ (marque *"Add python.exe to PATH"*).
-2. **Tesseract OCR:** instale pelo instalador da UB Mannheim (https://github.com/UB-Mannheim/tesseract/wiki). Em *"Additional language data"*, marque **Portuguese**.
-3. Dependências do Python, na pasta do projeto:
+1. **Python 3.10 ou mais novo:** https://www.python.org/downloads/
+2. **Tesseract OCR:** instale pelo instalador da UB Mannheim (https://github.com/UB-Mannheim/tesseract/wiki). Na tela *"Additional language data"*, marque **Portuguese**. Deixe a pasta de instalação padrão: o script encontra o Tesseract lá sozinho.
+3. **Dependências do Python:** dê dois cliques em **`instalar.bat`**. Se preferir, rode no Prompt de Comando, dentro da pasta do projeto:
    ```bash
-   pip install -r requirements.txt
+   py -m pip install -r requirements.txt
    ```
 
-Se o Tesseract não estiver no PATH, informe o caminho dele com `--tesseract "C:\Program Files\Tesseract-OCR\tesseract.exe"`.
+Use `py -m pip`, e não só `pip`: no Windows, o comando `pip` sozinho costuma não estar no PATH.
 
-No Linux, use `sudo apt install tesseract-ocr tesseract-ocr-por`.
+Se o Tesseract foi instalado em outra pasta, informe o caminho com `--tesseract "D:\...\tesseract.exe"`.
+
+No Linux, use `sudo apt install tesseract-ocr tesseract-ocr-por` e depois `pip install -r requirements.txt`.
 
 ## Uso
 
 ```bash
-python extrair_viagens.py "C:\Viagens\2026\maio" -o "C:\Viagens\planilha_GEE_2026.xlsx"
+py extrair_viagens.py "C:\Users\Aluno\Desktop\viagens"
+```
+
+Sem a opção `-o`, a planilha é criada (ou atualizada) como `planilha_GEE.xlsx` **dentro da pasta dos PDFs**. Para escolher outro arquivo, use `-o`:
+
+```bash
+py extrair_viagens.py "C:\Users\Aluno\Desktop\viagens" -o "C:\Users\Aluno\Desktop\planilha_GEE_2026.xlsx"
 ```
 
 Também dá para passar arquivos PDF avulsos, ou várias pastas. Cada documento leva cerca de 1 minuto (são cerca de 2 s por página).

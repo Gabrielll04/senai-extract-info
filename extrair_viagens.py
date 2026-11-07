@@ -18,6 +18,11 @@ from extrator.processar import (gravar_conferencia, linhas_conferencia,
                                 linhas_do_documento, processar_pdf)
 from extrator.visao import obter_extrator_visao
 
+# Valores do modelo para as linhas UBER (o recibo não informa o veículo).
+UBER_TIPO_FROTA_PADRAO = "Automóvel flex a gasolina"
+UBER_ANO_FROTA_PADRAO = 2016
+NOME_PLANILHA_PADRAO = "planilha_GEE.xlsx"
+
 NOMES_MES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"]
 
 
@@ -37,11 +42,15 @@ def listar_pdfs(entradas: list[str]) -> list[Path]:
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("entradas", nargs="+", help="PDFs ou pastas com PDFs")
-    ap.add_argument("-o", "--saida", required=True, help="planilha .xlsx (criada se não existir)")
+    ap.add_argument("-o", "--saida",
+                    help=f"planilha .xlsx (criada se não existir). Padrão: {NOME_PLANILHA_PADRAO} "
+                         "na pasta dos PDFs")
     ap.add_argument("--tesseract", help="caminho do tesseract.exe (se não estiver no PATH)")
     ap.add_argument("--dpi", type=int, default=ocr.DPI_PADRAO, help="resolução do OCR (padrão 300)")
-    ap.add_argument("--uber-tipo-frota", help="texto da coluna 'Tipo da frota' nas linhas UBER (padrão: vazio)")
-    ap.add_argument("--uber-ano-frota", type=int, help="valor da coluna 'Ano da frota' nas linhas UBER (padrão: vazio)")
+    ap.add_argument("--uber-tipo-frota", default=UBER_TIPO_FROTA_PADRAO,
+                    help=f"'Tipo da frota' nas linhas UBER (padrão: {UBER_TIPO_FROTA_PADRAO})")
+    ap.add_argument("--uber-ano-frota", type=int, default=UBER_ANO_FROTA_PADRAO,
+                    help=f"'Ano da frota' nas linhas UBER (padrão: {UBER_ANO_FROTA_PADRAO})")
     ap.add_argument("--visao", help="provedor de IA com visão para 2ª leitura (ainda não configurado)")
     args = ap.parse_args(argv)
 
@@ -54,7 +63,14 @@ def main(argv=None) -> int:
         print("Nenhum PDF encontrado.", file=sys.stderr)
         return 1
 
-    saida = Path(args.saida)
+    if args.saida:
+        saida = Path(args.saida)
+    else:
+        primeira = Path(args.entradas[0])
+        saida = (primeira if primeira.is_dir() else primeira.parent) / NOME_PLANILHA_PADRAO
+    if saida.suffix.lower() != ".xlsx":
+        print(f"A saída deve ser um arquivo .xlsx: {saida}", file=sys.stderr)
+        return 1
     linhas, conferencia, com_aviso = [], [], 0
     for i, pdf in enumerate(pdfs, 1):
         print(f"[{i}/{len(pdfs)}] {pdf.name} ...", flush=True)

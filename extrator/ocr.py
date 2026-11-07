@@ -1,7 +1,9 @@
 """Renderização das páginas do PDF e OCR local (Tesseract)."""
 from __future__ import annotations
 
+import os
 import re
+import shutil
 from dataclasses import dataclass
 
 import pymupdf
@@ -18,10 +20,25 @@ class Pagina:
     imagem: Image.Image  # mantida para reprocessamento (OCR mais forte / visão)
 
 
+_CAMINHOS_WINDOWS = [
+    r"C:\Program Files\Tesseract-OCR\tesseract.exe",
+    r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
+    os.path.expandvars(r"%LOCALAPPDATA%\Programs\Tesseract-OCR\tesseract.exe"),
+]
+
+
 def configurar_tesseract(caminho: str | None) -> None:
-    """Permite apontar o executável do Tesseract (necessário no Windows)."""
+    """Define o executável do Tesseract: o informado, o do PATH ou o local
+    padrão de instalação no Windows."""
     if caminho:
         pytesseract.pytesseract.tesseract_cmd = caminho
+        return
+    if shutil.which("tesseract"):
+        return
+    for c in _CAMINHOS_WINDOWS:
+        if os.path.isfile(c):
+            pytesseract.pytesseract.tesseract_cmd = c
+            return
 
 
 def verificar_tesseract() -> str:
