@@ -1,0 +1,69 @@
+# Extração de deslocamentos de viagem → planilha de GEE
+
+O script lê os PDFs digitalizados de prestação de contas de viagem (relatório SAP *"Cálculo de despesas/comprovante de despesas de viagem"* e os anexos). Com OCR, ele identifica os deslocamentos de **carro próprio** e de **Uber** e lança a distância percorrida na planilha do modelo `modelo/modelo_planilha.xlsx`.
+
+## O que é extraído
+
+| Coluna da planilha | Origem no PDF |
+|---|---|
+| A – Registro da frota | `PLACA` se houver trajetos de carro na seção **Trajeto** do relatório; `UBER` se houver recibos Uber anexados. Se houver os dois, são **duas linhas**. |
+| B – Evidência | Número da **Viagem** (`Viagem: 2111002329`) |
+| C – Descrição do passageiro | Número abaixo do nome do colaborador, no topo da 1ª página. É conferido com o `Nº pessoal` das páginas seguintes. |
+| D / E – Tipo / Ano da frota | Vazios. Nas linhas UBER, podem ser preenchidos com `--uber-tipo-frota` e `--uber-ano-frota`. |
+| F…Q – jan…dez | **PLACA:** soma do `Trajeto total (km)` de cada trajeto, no mês da data do trajeto. **UBER:** soma dos `Quilômetros` de cada recibo, no mês da **data do recibo**. |
+| R – Observações | Avisos para conferência manual (veja abaixo) |
+
+As distâncias de carro e de Uber **nunca são somadas entre si**. Se as corridas ou os trajetos de um documento caírem em meses diferentes, cada mês recebe só o que foi feito nele.
+
+## Conferências automáticas
+
+Quando algo não fecha, o script **não chuta valores**. Ele escreve um aviso na coluna *Observações* e no relatório de conferência:
+
+- um "Trajeto total" que não pôde ser lido, ou que diverge do `km/mi.` do mesmo trajeto;
+- nº da viagem ou nº pessoal ilegível, ou divergente entre as páginas;
+- recibo Uber sem data ou km legível (antes de desistir, o script tenta de novo com outro modo de OCR);
+- soma dos valores dos recibos Uber diferente do lançamento de **Táxi** no relatório (sinal de recibo faltando);
+- página que parece recibo de corrida, mas não é Uber (por exemplo, 99 ou táxi comum);
+- trajetos ou corridas em anos diferentes.
+
+Cada execução gera também o arquivo `conferencia_<planilha>_<data>.csv`, ao lado da planilha. Ele lista cada trajeto e cada corrida lidos (data, km, valor, página do PDF) e todos os avisos.
+
+## Planilha incremental
+
+- Se a planilha de saída não existir, ela é criada a partir do modelo.
+- Se existir, as novas linhas são acrescentadas no final.
+- Um documento que já foi lançado (mesmo tipo + mesma evidência) é **ignorado**, para não duplicar.
+- Feche a planilha no Excel antes de rodar o script.
+
+## Instalação (Windows)
+
+1. **Python 3.10 ou mais novo:** https://www.python.org/downloads/ (marque *"Add python.exe to PATH"*).
+2. **Tesseract OCR:** instale pelo instalador da UB Mannheim (https://github.com/UB-Mannheim/tesseract/wiki). Em *"Additional language data"*, marque **Portuguese**.
+3. Dependências do Python, na pasta do projeto:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+Se o Tesseract não estiver no PATH, informe o caminho dele com `--tesseract "C:\Program Files\Tesseract-OCR\tesseract.exe"`.
+
+No Linux, use `sudo apt install tesseract-ocr tesseract-ocr-por`.
+
+## Uso
+
+```bash
+python extrair_viagens.py "C:\Viagens\2026\maio" -o "C:\Viagens\planilha_GEE_2026.xlsx"
+```
+
+Também dá para passar arquivos PDF avulsos, ou várias pastas. Cada documento leva cerca de 1 minuto (são cerca de 2 s por página).
+
+## IA com visão (próxima etapa)
+
+O OCR é o caminho principal. O arquivo `extrator/visao.py` já define o ponto em que uma IA com visão entra: ela é chamada **só** nas páginas que o OCR não conseguiu ler com segurança. Depois de escolher o provedor, basta implementar `ExtratorVisao` e rodar com `--visao <provedor>`.
+
+## Testes
+
+```bash
+python -m unittest discover -s tests -t .
+```
+
+Os testes usam textos fictícios. **Não** coloque PDFs reais no repositório: eles contêm dados pessoais (o `.gitignore` já bloqueia `*.pdf`).

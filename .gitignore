@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+.venv/
+# documentos e saídas contêm dados pessoais: não versionar
+*.pdf
+saida/
+conferencia_*.csv
