@@ -72,7 +72,7 @@ Sem a opção `-o`, a planilha é criada (ou atualizada) como `planilha_GEE.xlsx
 py extrair_viagens.py "C:\Users\Aluno\Desktop\viagens" -o "C:\Users\Aluno\Desktop\planilha_GEE_2026.xlsx"
 ```
 
-Se algum documento for lido de forma estranha, rode de novo com `--salvar-texto "C:\\...\\texto_ocr"`. O script grava o texto que o OCR leu de cada PDF, o que ajuda a diagnosticar o problema.
+Se algum documento for lido de forma estranha, rode de novo com `--salvar-texto "C:\...\texto_ocr"`. O script grava o texto que o OCR leu de cada PDF, o que ajuda a diagnosticar o problema.
 
 Também dá para passar arquivos PDF avulsos, ou várias pastas. Cada documento leva cerca de 1 minuto (são cerca de 2 s por página).
 
